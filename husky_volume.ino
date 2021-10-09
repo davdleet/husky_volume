@@ -95,67 +95,109 @@ double max_width = 149;
 double max_length = 103;
 
 
-
+int side1_area = 0;
+int side2_area = 0;
+int volume = 0;
+bool started = false;
 int count = 0;
 int measurement_num = 0;
+bool last_block = true;
 void loop() {
     delay(1000);
-    
+    bool saved = false;
     if (!huskylens.request()) Serial.println(F("Fail to request data from HUSKYLENS, recheck the connection!"));
     else if(!huskylens.isLearned()) 
     {
-      if(count < 1){
+      if(!started){
         Serial.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
       }
       else{
-        Serial.print("Saved measurement");
-        Vector <int> temp;
-        Vector <int> temp1;
-        widths = temp;
-        lengths = temp1;
+        count++;
+        if(count % 2 == 0 && count != 1){
+          measurement_num++;
+          Serial.println("Saved side 2");
+          Serial.print("Measurement #");
+          Serial.print(measurement_num);
+          Serial.println(" complete. continue for next measurement");
+          int median_width = widths[widths.size()/2];
+          int median_length = lengths[lengths.size()/2];
+          side2_area = median_width * median_length;
+          volume = side1_area * side2_area;
+          Serial.print("Resulting volume in mm^3: ");
+          Serial.println(volume);
+          Vector <int> temp;
+          Vector <int> temp1;
+          widths = temp;
+          lengths = temp1;
+          started = false; 
+        }
+        else{
+          Serial.println("Saved side 1");
+          int median_width = widths[widths.size()/2];
+          int median_length = lengths[lengths.size()/2];
+          side1_area = median_width * median_length;
+          Vector <int> temp;
+          Vector <int> temp1;
+          widths = temp;
+          lengths = temp1;
+          started = false;
+        }
       }
     }
     else if(!huskylens.available()) Serial.println(F("No block or arrow appears on the screen!"));
     else
     {
+        started = true;
         Serial.println(F("###########"));
         while (huskylens.available())
         {
-            count++;
             HUSKYLENSResult result = huskylens.read();
-            double object_width = result.width;
-            double object_length = result.height;
-            printResult(result);
-            //the formula to calculate actual length 
-            double real_width = (distance * (object_width * sensor_height_width)) / (focal_length * image_width);
-            //same formula to calculate actual width
-            double real_length = (distance * (object_length * sensor_height_length)) / (focal_length * image_length);
-            Serial.print("Real width in mm is: ");
-            Serial.println(real_width);
-            Serial.print("Real height in mm is: ");
-            Serial.println(real_length);
-            //push back to vector if an appropriate width and length was calculated
-            if(real_width <= max_width && real_width > 0 && real_length <= max_length && real_length > 0){
-               widths.push_back(real_width);
-               lengths.push_back(real_length);
+            //calculations for blocks
+            if(result.command == COMMAND_RETURN_BLOCK){
+              last_block = true;
+              double object_width = result.width;
+              double object_length = result.height;
+              printResult(result);
+              //the formula to calculate actual length 
+              double real_width = (distance * (object_width * sensor_height_width)) / (focal_length * image_width);
+              //same formula to calculate actual width
+              double real_length = (distance * (object_length * sensor_height_length)) / (focal_length * image_length);
+              Serial.print("Real width in mm is: ");
+              Serial.println(real_width);
+              Serial.print("Real height in mm is: ");
+              Serial.println(real_length);
+              //push back to vector if an appropriate width and length was calculated
+              if(real_width <= max_width && real_width > 0 && real_length <= max_length && real_length > 0){
+                 widths.push_back(real_width);
+                 lengths.push_back(real_length);
+              }      
             }
-        }
-        bubbleSort(0, widths.size());
-        bubbleSort(1, lengths.size());
-        Serial.println("Printing widths: ");
-        for(int i = 0; i < widths.size(); i++){
-           Serial.print(widths[i]);
-           Serial.print(" ");
-        }
-        Serial.println();
-        Serial.println("Printing lengths: ");
-        for(int i = 0; i < lengths.size(); i++){
-           Serial.print(lengths[i]);
-           Serial.print(" ");
-        }
-        Serial.println();
-        Serial.println(huskylens.customText("helo", 120, 120));
+            //calculations for lines
+            else{
+              last_block = false;
+            }
         
+        }
+        if(last_block){
+          bubbleSort(0, widths.size());
+          bubbleSort(1, lengths.size());
+          Serial.println("Printing widths: ");
+          for(int i = 0; i < widths.size(); i++){
+             Serial.print(widths[i]);
+             Serial.print(" ");
+          }
+          Serial.println();
+          Serial.println("Printing lengths: ");
+          for(int i = 0; i < lengths.size(); i++){
+             Serial.print(lengths[i]);
+             Serial.print(" ");
+          }
+          Serial.println();
+          Serial.println(huskylens.customText("helo", 120, 120));
+        }
+        else{
+          
+        }
     }
     
 }
