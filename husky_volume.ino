@@ -18,40 +18,144 @@ void setup() {
     }
 }
 
-int arr[50];
-int counter = 0;
+//Vector for dynamic container
+template<typename Data>
+class Vector {
+   size_t d_size; // Stores no. of actually stored objects
+   size_t d_capacity; // Stores allocated capacity
+   Data *d_data; // Stores data
+   public:
+     Vector() : d_size(0), d_capacity(0), d_data(0) {}; // Default constructor
+     Vector(Vector const &other) : d_size(other.d_size), d_capacity(other.d_capacity), d_data(0) { d_data = (Data *)malloc(d_capacity*sizeof(Data)); memcpy(d_data, other.d_data, d_size*sizeof(Data)); }; // Copy constuctor
+     ~Vector() { free(d_data); }; // Destructor
+     Vector &operator=(Vector const &other) { free(d_data); d_size = other.d_size; d_capacity = other.d_capacity; d_data = (Data *)malloc(d_capacity*sizeof(Data)); memcpy(d_data, other.d_data, d_size*sizeof(Data)); return *this; }; // Needed for memory management
+     void push_back(Data const &x) { if (d_capacity == d_size) resize(); d_data[d_size++] = x; }; // Adds new value. If needed, allocates more space
+     size_t size() const { return d_size; }; // Size getter
+     Data const &operator[](size_t idx) const { return d_data[idx]; }; // Const getter
+     Data &operator[](size_t idx) { return d_data[idx]; }; // Changeable getter
+   private:
+     void resize() { d_capacity = d_capacity ? d_capacity*2 : 1; Data *newdata = (Data *)malloc(d_capacity*sizeof(Data)); memcpy(newdata, d_data, d_size * sizeof(Data)); free(d_data); d_data = newdata; };// Allocates double the old space
+};
+
+//Vector to store widths
+Vector <int> widths;
+//Vector to store lengths
+Vector <int> lengths;
+
+
+//swap two ints
+void swap(int *xp, int *yp)
+{
+    int temp = *xp;
+    *xp = *yp;
+    *yp = temp;
+}
+ 
+// A function to implement bubble sort
+void bubbleSort(int worl, int n)
+{
+    if(worl == 0){
+      int i, j; 
+      for (i = 0; i < n-1; i++)    
+       
+      // Last i elements are already in place
+      for (j = 0; j < n-i-1; j++)
+          if (widths[j] > widths[j+1])
+              swap(&widths[j], &widths[j+1]); 
+    }
+    else if(worl == 1){
+      int i, j; 
+      for (i = 0; i < n-1; i++)    
+       
+      // Last i elements are already in place
+      for (j = 0; j < n-i-1; j++)
+          if (lengths[j] > lengths[j+1])
+              swap(&lengths[j], &lengths[j+1]); 
+    }
+}
 
 //huskylens.writeAlgorithm(ALGORITHM_NAME) to change algorithms
 //
 
 
+//distance in mm
 double distance = 190;
-double sensor_size = 3.2;
+//sensor height in mm
+double sensor_height_width = 3.2;
+double sensor_height_length = 2.4;
+//focal_length in mm
 double focal_length = 3.6;
-double image_length = 320;
-double max_length = 149;
-double max_width = 103;
+//total pixels in camera --> width
+double image_width = 320;
+//total pixels in camera --> height
+double image_length = 240;
+//maximum width in mm
+double max_width = 149;
+//maximum length in mm
+double max_length = 103;
+
+
 
 int count = 0;
+int measurement_num = 0;
 void loop() {
     delay(1000);
     
     if (!huskylens.request()) Serial.println(F("Fail to request data from HUSKYLENS, recheck the connection!"));
-    else if(!huskylens.isLearned()) Serial.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
+    else if(!huskylens.isLearned()) 
+    {
+      if(count < 1){
+        Serial.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
+      }
+      else{
+        Serial.print("Saved measurement");
+        Vector <int> temp;
+        Vector <int> temp1;
+        widths = temp;
+        lengths = temp1;
+      }
+    }
     else if(!huskylens.available()) Serial.println(F("No block or arrow appears on the screen!"));
     else
     {
         Serial.println(F("###########"));
         while (huskylens.available())
         {
-            
+            count++;
             HUSKYLENSResult result = huskylens.read();
-            double object_length = result.width;
+            double object_width = result.width;
+            double object_length = result.height;
             printResult(result);
-            double real_length = (distance * (object_length * sensor_size)) / (focal_length * image_length);
-            Serial.print("Real length in mm is: ");
+            //the formula to calculate actual length 
+            double real_width = (distance * (object_width * sensor_height_width)) / (focal_length * image_width);
+            //same formula to calculate actual width
+            double real_length = (distance * (object_length * sensor_height_length)) / (focal_length * image_length);
+            Serial.print("Real width in mm is: ");
+            Serial.println(real_width);
+            Serial.print("Real height in mm is: ");
             Serial.println(real_length);
-        }    
+            //push back to vector if an appropriate width and length was calculated
+            if(real_width <= max_width && real_width > 0 && real_length <= max_length && real_length > 0){
+               widths.push_back(real_width);
+               lengths.push_back(real_length);
+            }
+        }
+        bubbleSort(0, widths.size());
+        bubbleSort(1, lengths.size());
+        Serial.println("Printing widths: ");
+        for(int i = 0; i < widths.size(); i++){
+           Serial.print(widths[i]);
+           Serial.print(" ");
+        }
+        Serial.println();
+        Serial.println("Printing lengths: ");
+        for(int i = 0; i < lengths.size(); i++){
+           Serial.print(lengths[i]);
+           Serial.print(" ");
+        }
+        Serial.println();
+        Serial.println(huskylens.customText("helo", 120, 120));
+        
     }
     
 }
