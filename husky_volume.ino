@@ -79,12 +79,12 @@ void bubbleSort(int worl, int n)
 
 
 //distance in mm
-double distance = 190;
+double distance = 195;
 //sensor height in mm
 double sensor_height_width = 3.2;
 double sensor_height_length = 2.4;
 //focal_length in mm
-double focal_length = 3.6;
+double focal_length = 3.21;
 //total pixels in camera --> width
 double image_width = 320;
 //total pixels in camera --> height
@@ -95,13 +95,16 @@ double max_width = 149;
 double max_length = 103;
 
 
-int side1_area = 0;
-int side2_area = 0;
-int volume = 0;
+double side1_area = 0;
+//change to height of side 2
+double side2_length = 0;
+double side2_area = 0;
+double volume = 0;
 bool started = false;
 int count = 0;
 int measurement_num = 0;
 bool last_block = true;
+
 void loop() {
     delay(1000);
     bool saved = false;
@@ -119,10 +122,15 @@ void loop() {
           Serial.print("Measurement #");
           Serial.print(measurement_num);
           Serial.println(" complete. continue for next measurement");
-          int median_width = widths[widths.size()/2];
+          //int median_width = widths[widths.size()/2];
           int median_length = lengths[lengths.size()/2];
-          side2_area = median_width * median_length;
-          volume = side1_area * side2_area;
+          //side2_area = median_width * median_length;
+          side2_length = median_length;
+          Serial.print("side1 area: ");
+          Serial.println(side1_area);
+          Serial.print("side2 length: ");
+          Serial.println(side2_length);
+          volume = side1_area * side2_length;
           Serial.print("Resulting volume in mm^3: ");
           Serial.println(volume);
           Vector <int> temp;
