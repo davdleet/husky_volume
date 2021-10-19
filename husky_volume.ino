@@ -1,3 +1,7 @@
+/*
+This is an implementation of a volume measuring algorithm using
+the ai vision sensor "HUSKYLENS"
+*/
 #include "HUSKYLENS.h"
 #include "SoftwareSerial.h"
 
@@ -6,10 +10,12 @@ SoftwareSerial mySerial(10, 11); // RX, TX
 //HUSKYLENS green line >> Pin 10; blue line >> Pin 11
 void printResult(HUSKYLENSResult result);
 
+//Setup code for serial monitor and huskylens
 void setup()
 {
     Serial.begin(115200);
     mySerial.begin(9600);
+    //error in reading huskylens or serial error
     while (!huskylens.begin(mySerial))
     {
         Serial.println(F("Begin failed!"));
@@ -43,6 +49,8 @@ public:
         memcpy(d_data, other.d_data, d_size * sizeof(Data));
         return *this;
     }; // Needed for memory management
+
+    //add a new value to the vector
     void push_back(Data const &x)
     {
         if (d_capacity == d_size)
@@ -63,6 +71,8 @@ private:
     }; // Allocates double the old space
 };
 
+
+
 //Vector to store widths
 Vector<double> widths;
 //Vector to store lengths
@@ -77,8 +87,10 @@ void swap(double *xp, double *yp)
 }
 
 // A function to implement bubble sort
+//worl indicates which vector is being referenced
 void bubbleSort(int worl, int n)
 {
+    //worl 0 us for widths
     if (worl == 0)
     {
         int i, j;
@@ -89,20 +101,17 @@ void bubbleSort(int worl, int n)
                 if (widths[j] > widths[j + 1])
                     swap(&widths[j], &widths[j + 1]);
     }
+    //worl 0 for lengths
     else if (worl == 1)
     {
         int i, j;
         for (i = 0; i < n - 1; i++)
-
             // Last i elements are already in place
             for (j = 0; j < n - i - 1; j++)
                 if (lengths[j] > lengths[j + 1])
                     swap(&lengths[j], &lengths[j + 1]);
     }
 }
-
-//huskylens.writeAlgorithm(ALGORITHM_NAME) to change algorithms
-//
 
 //distance in mm
 double distance = 195;
@@ -119,19 +128,24 @@ double image_length = 240;
 double max_width = 149;
 //maximum length in mm
 double max_length = 103;
-
-double side1_area = 0;
-//change to height of side 2
-double side2_length = 0;
-double side2_area = 0;
 double volume = 0;
+//boolean flag to indicate whether measurement started
 bool started = false;
+//counts the number of times measurement was done
 int count = 0;
-int measurement_num = 0;
+//boolean flag to check if the last measurement was a block
 bool last_block = true;
-int side = 1;
 
 
+//calulation is done filming 2 sides
+//1st side is the base side (to get the area of the base)
+//2nd side is the rear view of the object
+//each side is filmed 2 times as inner (biggest rectangle that can be contained by the actual object) and outer boxes (smallest rectangle that can contain the object)
+//the rectangles are the blocks visible in huskylens during measurement
+//x1, y1 is the width and the length of the inner box of side 1
+//x2, y2 is the width and the length of the outer box of side 1
+//x3, y3 is the width and the length of the inner box of side 2
+//x4, y4 is the width and the length of the outer box of side 2
 double x1 = 0, x2 = 0, x3 = 0, x4 = 0, y1 = 0, y2 = 0, y3 = 0, y4 = 0;
 
 
@@ -139,17 +153,24 @@ void loop()
 {
     delay(1000);
     bool saved = false;
+    //huskylens connection is unstable
     if (!huskylens.request())
         Serial.println(F("Fail to request data from HUSKYLENS, recheck the connection!"));
+    //nothing is learned by huskylens yet
     else if (!huskylens.isLearned())
     {
+        //measurement is not started yet
         if (!started)
         {
             Serial.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
         }
+        //measurement started
         else
         {
             count++;
+            //measurement for inner frame of side 2
+            //all sides are done measuring
+            //print result on serial monitor
             if(count % 4 == 0 && count != 1){
                 Serial.print("Count:");
                 Serial.println(count);
@@ -163,7 +184,9 @@ void loop()
                 widths = temp;
                 lengths = temp;
                 started = false;
+                //approximation equation for the base area
                 double A = ((x1+x2)*(y1+y2))/4;
+                //approximation equation for the height of the rear side
                 double h = pow((((x3+x4)*(y3+y4))/(4*x3*y4)), 1.585) * y3;
                 volume = A * h;
                 Serial.println("volume calcuation complete");
@@ -171,6 +194,7 @@ void loop()
                 count = 0;
                 
             }
+            //measurement for outer frame of side 2
             else if(count % 3 == 0 && count != 1){
                 Serial.print("Count:");
                 Serial.println(count);
@@ -185,31 +209,9 @@ void loop()
                 lengths = temp;
                 started = false;
             }
+            //measurement for inner frame of side 1
             else if (count % 2 == 0 && count != 1)
             {
-              /*
-                measurement_num++;
-                Serial.println("Saved side 2");
-                Serial.print("Measurement #");
-                Serial.print(measurement_num);
-                Serial.println(" complete. continue for next measurement");
-                //int median_width = widths[widths.size()/2];
-                int median_length = lengths[lengths.size() / 2];
-                //side2_area = median_width * median_length;
-                side2_length = median_length;
-                Serial.print("side1 area: ");
-                Serial.println(side1_area);
-                Serial.print("side2 length: ");
-                Serial.println(side2_length);
-                volume = side1_area * side2_length;
-                Serial.print("Resulting volume in mm^3: ");
-                Serial.println(volume);
-                Vector<int> temp;
-                Vector<int> temp1;
-                widths = temp;
-                lengths = temp1;
-                started = false;
-                */
                 Serial.print("Count:");
                 Serial.println(count);
                 Serial.println("saved inner frame of side 1");
@@ -223,23 +225,14 @@ void loop()
                 lengths = temp;
                 started = false;
             }
+            //measurement for inner frame of side 1
             else
             {
                 Serial.print("Count:");
                 Serial.println(count);
-              /*
-                Serial.println("Saved side 1");
-                int median_width = widths[widths.size() / 2];
-                int median_length = lengths[lengths.size() / 2];
-                side1_area = median_width * median_length;
-                Vector<int> temp;
-                Vector<int> temp1;
-                widths = temp;
-                lengths = temp1;
-                started = false;
-                */
                 Serial.println("saved outer frame of side 1");
-                
+                //median of the widths are taken, and the widths and lengths vector are reset
+                //the start variable is set to false to wait for user measurement
                 double median_width = widths[widths.size()/2];
                 double median_length = lengths[lengths.size()/2];
                 x1 = median_width;
@@ -253,8 +246,10 @@ void loop()
             }
         }
     }
+    //nothing is being captured in the screen of huskylens
     else if (!huskylens.available())
         Serial.println(F("No block or arrow appears on the screen!"));
+    //huskylens is capturing a block
     else
     {
         started = true;
@@ -278,11 +273,13 @@ void loop()
                 Serial.print("Real height in mm is: ");
                 Serial.println(real_length);
                 //push back to vector if an appropriate width and length was calculated
+                //object cannot be bigger than the maximum value set
                 if (real_width <= max_width && real_width > 0 && real_length <= max_length && real_length > 0)
                 {
                     widths.push_back(real_width);
                     lengths.push_back(real_length);
                 }
+                //error message in case a wrong width or length was measured
                 else{
                     if(real_width <= max_width && real_width > 0){
                        Serial.println("measured width of the object is bigger than limit or is smaller than 0");
@@ -293,11 +290,13 @@ void loop()
                 }
             }
             //calculations for lines
+            //no algorithms for lines because it was too unstable and blocks are enough
             else
             {
                 last_block = false;
             }
         }
+        //print all the width or length that has been measured until now
         if (last_block)
         {
             bubbleSort(0, widths.size());
