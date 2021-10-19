@@ -142,12 +142,15 @@ bool last_block = true;
 //2nd side is the rear view of the object
 //each side is filmed 2 times as inner (biggest rectangle that can be contained by the actual object) and outer boxes (smallest rectangle that can contain the object)
 //the rectangles are the blocks visible in huskylens during measurement
-//x1, y1 is the width and the length of the inner box of side 1
-//x2, y2 is the width and the length of the outer box of side 1
-//x3, y3 is the width and the length of the inner box of side 2
-//x4, y4 is the width and the length of the outer box of side 2
+//x1, y1 is the width and the length of the outer box of side 1
+//x2, y2 is the width and the length of the inner box of side 1
+//x3, y3 is the width and the length of the outer box of side 2
+//x4, y4 is the width and the length of the inner box of side 2
+//hx1, hy1 is the width and the length of the outer box of the hole in side 1
+//hx2, hy2 is the width and the length of the inner box of the hole in side 1
+//if there is no hole make the box in husky lens as small as possible
 double x1 = 0, x2 = 0, x3 = 0, x4 = 0, y1 = 0, y2 = 0, y3 = 0, y4 = 0;
-
+double hx1 = 0, hy1 = 0, hx2 = 0, hy2 = 0;
 
 void loop()
 {
@@ -162,7 +165,7 @@ void loop()
         //measurement is not started yet
         if (!started)
         {
-            Serial.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
+            //Serial.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
         }
         //measurement started
         else
@@ -171,7 +174,7 @@ void loop()
             //measurement for inner frame of side 2
             //all sides are done measuring
             //print result on serial monitor
-            if(count % 4 == 0 && count != 1){
+            if(count == 6){
                 Serial.print("Count:");
                 Serial.println(count);
                 Serial.println("saved inner frame of side 2");
@@ -186,16 +189,25 @@ void loop()
                 started = false;
                 //approximation equation for the base area
                 double A = ((x1+x2)*(y1+y2))/4;
+                //approximation equation for the hole in side 1
+                double hole_A = ((hx1 + hx2) * (hy1 + hy2))/4;
+                A = A - hole_A; 
                 //approximation equation for the height of the rear side
                 double h = pow((((x3+x4)*(y3+y4))/(4*x3*y4)), 1.585) * y3;
                 volume = A * h;
+                double cm_volume = volume / 1000;
                 Serial.println("volume calcuation complete");
+                Serial.print("volume in mm3: ");
                 Serial.println(volume);
+                Serial.print("volume in cm3: ");
+                Serial.println(cm_volume);
                 count = 0;
+                Serial.println();
+                Serial.println();
                 
             }
             //measurement for outer frame of side 2
-            else if(count % 3 == 0 && count != 1){
+            else if(count == 5){
                 Serial.print("Count:");
                 Serial.println(count);
                 Serial.println("saved outer frame of side 2");
@@ -208,9 +220,45 @@ void loop()
                 widths = temp;
                 lengths = temp;
                 started = false;
+                Serial.println();
+                Serial.println();
+            }
+            //measurement for outer frame of hole in side1
+            else if(count == 4){
+                Serial.print("Count:");
+                Serial.println(count);
+                Serial.println("saved inner frame of side 1 hole");
+                double median_width = widths[widths.size()/2];
+                double median_length = lengths[lengths.size()/2];
+                hx2 = median_width;
+                hy2 = median_length;
+                Vector <double> temp;
+                Vector <double> temp1;
+                widths = temp;
+                lengths = temp;
+                started = false;
+                Serial.println();
+                Serial.println();
+            }
+            //measurement for outer frame of hole in side1
+            else if(count == 3){
+                Serial.print("Count:");
+                Serial.println(count);
+                Serial.println("saved outer frame of side 1 hole");
+                double median_width = widths[widths.size()/2];
+                double median_length = lengths[lengths.size()/2];
+                hx1 = median_width;
+                hy1 = median_length;
+                Vector <double> temp;
+                Vector <double> temp1;
+                widths = temp;
+                lengths = temp;
+                started = false;
+                Serial.println();
+                Serial.println();
             }
             //measurement for inner frame of side 1
-            else if (count % 2 == 0 && count != 1)
+            else if (count == 2)
             {
                 Serial.print("Count:");
                 Serial.println(count);
@@ -224,6 +272,8 @@ void loop()
                 widths = temp;
                 lengths = temp;
                 started = false;
+                Serial.println();
+                Serial.println();
             }
             //measurement for inner frame of side 1
             else
@@ -242,6 +292,8 @@ void loop()
                 widths = temp;
                 lengths = temp;
                 started = false;
+                Serial.println();
+                Serial.println();
                 
             }
         }
@@ -281,7 +333,7 @@ void loop()
                 }
                 //error message in case a wrong width or length was measured
                 else{
-                    if(real_width <= max_width && real_width > 0){
+                    if(real_width >= max_width && real_width > 0){
                        Serial.println("measured width of the object is bigger than limit or is smaller than 0");
                     }
                     else{
@@ -314,6 +366,7 @@ void loop()
                 Serial.print(lengths[i]);
                 Serial.print(" ");
             }
+            Serial.println();
             Serial.println();
         }
         else
