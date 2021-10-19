@@ -316,7 +316,6 @@ void loop()
                 Serial.print(" ");
             }
             Serial.println();
-            Serial.println(huskylens.customText("helo", 120, 120));
         }
         else
         {
